@@ -106,8 +106,8 @@ void combine_files() {
     }
 
     // Urutan file: 1.txt, a.txt, 2.txt, b.txt, dst.
-    const char *files[] = {"1.txt", "a.txt", "2.txt", "b.txt", "3.txt", "c.txt", "4.txt", "d.txt", "5.txt", "e.txt", "6.txt", "f.txt", "7.txt"};
-    int num_files = 13;
+    const char *files[] = {"1.txt", "a.txt", "2.txt", "b.txt", "3.txt", "c.txt", "4.txt", "d.txt", "5.txt", "e.txt", "6.txt", "f.txt"};
+    int num_files = 12;
 
     for (int i = 0; i < num_files; i++) {
         char filepath[256];
