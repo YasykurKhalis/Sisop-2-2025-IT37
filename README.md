@@ -532,6 +532,7 @@ void list_processes(const char *user) {
 Penjelasan :
 
 Function ini berguna untuk mengetahui apa saja yg dijalankan oleh user tersebut dimulai dari PID, command, CPU usage, dan juga memory usage
+
 ![image](https://github.com/user-attachments/assets/7072ae64-f169-4fcb-8fc8-9067fa8d5acc)
 
 b. Memasang mata-mata dalam mode daemon
