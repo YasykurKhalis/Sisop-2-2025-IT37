@@ -575,6 +575,7 @@ void start_daemon(const char *user) {
 Penjelasan :
 
 Function ini akan mengecek apa yang akan dilakukan user 
+
 ![image](https://github.com/user-attachments/assets/cb2725ef-e76f-435d-ae4c-01e305981fa0)
 
 c. Menghentikan Pengawasan 
@@ -594,6 +595,7 @@ void stop_daemon(const char *user) {
 Penjelasan :
 
 Function ini berguna untuk menghentikan proses pengintaian dari daemon
+
 ![image](https://github.com/user-attachments/assets/0e1a2216-31a6-4e22-aa5e-5b5858b56b56)
 
 d. Menggagalkan semua proses user yang sedang berjalan
@@ -689,6 +691,7 @@ void revert_block(const char *user) {
 Penjelasan :
 
 Function ini akan mengembalikan user agar bisa menjalankan suatu proses, dan proses lainnya akan kembali running tapi akan ada proses juga yg failed
+
 ![image](https://github.com/user-attachments/assets/ee7d3627-08fd-4173-a326-33fd77610a5a)
 
 f. Mencatat ke dalam file log
