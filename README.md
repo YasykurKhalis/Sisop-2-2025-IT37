@@ -502,7 +502,7 @@ Isi file `activity.log`:
 
 ![Capture6](https://github.com/user-attachments/assets/b15fa14e-071f-4539-8099-00c427f0bdce)
 
-#Soal 4
+# Soal 4
 a. Mengetahui semua aktivitas user
 ```c
 void list_processes(const char *user) {
