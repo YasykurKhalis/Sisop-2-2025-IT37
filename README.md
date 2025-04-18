@@ -501,3 +501,214 @@ Function mempunyai argumen berupa pesan untuk program yang dijalankan. Menggunak
 Isi file `activity.log`:
 
 ![Capture6](https://github.com/user-attachments/assets/b15fa14e-071f-4539-8099-00c427f0bdce)
+
+#Soal 4
+a. Mengetahui semua aktivitas user
+```c
+void list_processes(const char *user) {
+    printf("Listing processes for user: %s\n", user);
+
+    char command[MAX_LINE];
+    snprintf(command, sizeof(command), "ps -u %s -o pid,cmd,%%cpu,%%mem 2>/dev/null", user);
+
+    FILE *ps_output = popen(command, "r");
+    if (!ps_output) {
+        perror("Failed to execute ps command");
+        return;
+    }
+
+    printf("PID\tCOMMAND\t\t\tCPU\tMEM\n");
+    printf("------------------------------------------------\n");
+
+    char line[MAX_LINE];
+    while (fgets(line, sizeof(line), ps_output)) {
+        printf("%s", line);
+    }
+
+    pclose(ps_output);
+    write_log("process_list", "RUNNING");
+}
+```
+Penjelasan :
+
+Function ini berguna untuk mengetahui apa saja yg dijalankan oleh user tersebut dimulai dari PID, command, CPU usage, dan juga memory usage
+![image](https://github.com/user-attachments/assets/7072ae64-f169-4fcb-8fc8-9067fa8d5acc)
+
+b. Memasang mata-mata dalam mode daemon
+```c
+void start_daemon(const char *user) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        perror("fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid > 0) {
+        printf("Debugmon daemon started for user %s (PID: %d)\n", user, pid);
+        write_log(DAEMON_IDENTIFIER, "RUNNING");
+        exit(EXIT_SUCCESS);
+    }
+
+    umask(0);
+    setsid();
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+
+    while (1) {
+        sleep(30);
+        // Check and log user processes periodically
+        char command[MAX_LINE];
+        snprintf(command, sizeof(command), "ps -u %s -o pid= | wc -l", user);
+        FILE *ps_output = popen(command, "r");
+        if (ps_output) {
+            char count_str[16];
+            if (fgets(count_str, sizeof(count_str), ps_output)) {
+                write_log("daemon_monitoring", "RUNNING");
+            }
+            pclose(ps_output);
+        }
+    }
+}
+```
+Penjelasan :
+
+Function ini akan mengecek apa yang akan dilakukan user 
+![image](https://github.com/user-attachments/assets/cb2725ef-e76f-435d-ae4c-01e305981fa0)
+
+c. Menghentikan Pengawasan 
+```c
+void stop_daemon(const char *user) {
+    printf("Stopping debugmon daemon for user: %s\n", user);
+
+    char command[MAX_LINE];
+    snprintf(command, sizeof(command), "pgrep -f '%s' 2>/dev/null", DAEMON_IDENTIFIER);
+
+    FILE *pgrep_output = popen(command, "r");
+    if (!pgrep_output) {
+        perror("Failed to find daemon process");
+        return;
+    }
+```
+Penjelasan :
+
+Function ini berguna untuk menghentikan proses pengintaian dari daemon
+![image](https://github.com/user-attachments/assets/0e1a2216-31a6-4e22-aa5e-5b5858b56b56)
+
+d. Menggagalkan semua proses user yang sedang berjalan
+```c
+char pid_str[16];
+    int found = 0;
+
+    while (fgets(pid_str, sizeof(pid_str), pgrep_output)) {
+        pid_t pid = atoi(pid_str);
+        if (kill(pid, SIGTERM) == 0) {
+            printf("Successfully stopped daemon (PID: %d)\n", pid);
+            write_log(DAEMON_IDENTIFIER, "RUNNING");
+            found = 1;
+        } else {
+            fprintf(stderr, "Failed to kill process %d: %s\n", pid, strerror(errno));
+        }
+    }
+
+    if (!found) {
+        printf("No running daemon found for user %s\n", user);
+    }
+
+    pclose(pgrep_output);
+}
+
+void fail_processes(const char *user) {
+    printf("Failing all processes for user: %s\n", user);
+
+    char command[MAX_LINE];
+    snprintf(command, sizeof(command), "ps -u %s -o pid= 2>/dev/null", user);
+
+    FILE *ps_output = popen(command, "r");
+    if (!ps_output) {
+        perror("Failed to get user processes");
+        return;
+    }
+
+    char pid_str[16];
+    int count = 0;
+
+    while (fgets(pid_str, sizeof(pid_str), ps_output)) {
+        pid_t pid = atoi(pid_str);
+        if (pid > 1 && kill(pid, SIGSTOP) == 0) {  
+            printf("Stopped process: %d\n", pid);
+            write_log("process_stop", "FAILED");
+            count++;
+        }
+    }
+
+    pclose(ps_output);
+    printf("Total processes stopped: %d\n", count);
+```
+Penjelasan : 
+
+Ketika function ini dijalankan, maka semua proses akan berhenti dan user pun terlogout atau keluar dari user tersebut dan menuju ke root
+![image](https://github.com/user-attachments/assets/9cda6fe8-394e-4009-8a3b-3c070b9add73)
+
+e. Mengizinkan user untuk kembali menjalankan proses
+```c
+void revert_block(const char *user) {
+    printf("Reverting block for user: %s\n", user);
+
+    char command[MAX_LINE];
+    snprintf(command, sizeof(command), "ps -u %s -o pid= --state T 2>/dev/null", user);
+
+    FILE *ps_output = popen(command, "r");
+    if (!ps_output) {
+        perror("Failed to get stopped processes");
+        return;
+    }
+
+    char pid_str[16];
+    int count = 0;
+
+    while (fgets(pid_str, sizeof(pid_str), ps_output)) {
+        pid_t pid = atoi(pid_str);
+        if (pid > 1 && kill(pid, SIGCONT) == 0) {
+            printf("Resumed process: %d\n", pid);
+            count++;
+        }
+    }
+
+    pclose(ps_output);
+    printf("Total processes resumed: %d\n", count);
+
+    char limit_cmd[MAX_LINE];
+    snprintf(limit_cmd, sizeof(limit_cmd), "sudo prlimit --pid 1 --nproc=unlimited --user %s", user);
+    system(limit_cmd);
+
+    write_log("user_unblock", "RUNNING");
+}
+```
+Penjelasan :
+
+Function ini akan mengembalikan user agar bisa menjalankan suatu proses, dan proses lainnya akan kembali running tapi akan ada proses juga yg failed
+![image](https://github.com/user-attachments/assets/ee7d3627-08fd-4173-a326-33fd77610a5a)
+
+f. Mencatat ke dalam file log
+```c
+void write_log(const char *process, const char *status) {
+    time_t now;
+    time(&now);
+    struct tm *tm_info = localtime(&now);
+
+    char timestamp[50];
+    strftime(timestamp, sizeof(timestamp), "[%d:%m:%Y]-[%H:%M:%S]", tm_info);
+
+    FILE *log = fopen(LOG_FILE, "a");
+    if (log) {
+        fprintf(log, "%s_%s_STATUS(%s)\n", timestamp, process, status);
+        fclose(log);
+    }
+}
+```
+Penjelasan :
+
+Semua proses yang sudah dilakukan akan dicatat ke dalam log file yg nantinya bisa dilihat apa saja proses yg sedang running ataupun failed
+![image](https://github.com/user-attachments/assets/b1578ac2-0551-4e9b-aedf-4d7425830ada)
