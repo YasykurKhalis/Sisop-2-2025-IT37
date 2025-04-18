@@ -1,4 +1,198 @@
 # Soal 1
+a. Downloading the Clues
+```c
+void download_and_unzip() {
+    DIR* dir = opendir("Clues");
+    if (dir) {
+        closedir(dir);
+        return;
+    }
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        char *args[] = {"wget", "-q", "https://drive.google.com/uc?export=download&id=1xFn1OBJUuSdnApDseEczKhtNzyGekauK", "-O", "Clues.zip", NULL};
+        execvp("wget", args);
+        perror("execvp wget");
+        exit(EXIT_FAILURE);
+    } else {
+        wait(NULL);
+    }
+
+    pid = fork();
+    if (pid == 0) {
+        char *args[] = {"unzip", "-q", "Clues.zip", NULL};
+        execvp("unzip", args);
+        perror("execvp unzip");
+        exit(EXIT_FAILURE);
+    } else {
+        wait(NULL);
+    }
+
+    remove("Clues.zip");
+}
+```
+Penjelasan :
+
+Function ini berfungsi untuk mendownload zip dari link yg telah disediakan, kemudian zip tersebut akan di unzip dan dimasukkan ke dalam sebuah folder, dan fucntion ini tidak akan mendownload kembali file zipnya jika file zip tersebut sudah didownload
+![image](https://github.com/user-attachments/assets/cd7a993e-580f-4c31-b2b5-0e429c31ef0e)
+![image](https://github.com/user-attachments/assets/cd8e9e65-2d2a-49d9-a745-c01679929cce)
+
+b. Filtering the Files
+```c
+bool is_valid_filename(const char *filename) {
+    if (strlen(filename) != 5) return false;
+    return (isalpha(filename[0]) || isdigit(filename[0])) && (strcmp(&filename[1], ".txt") == 0);
+}
+
+void filter_files() {
+    mkdir("Filtered", 0755);
+
+    struct dirent *entry;
+    DIR *dp;
+
+    for (int i = 0; i < 4; i++) {
+        char dirname[20];
+        sprintf(dirname, "Clues/Clue%c", 'A' + i);
+
+        dp = opendir(dirname);
+        if (dp == NULL) {
+            perror("opendir");
+            continue;
+        }
+
+        while ((entry = readdir(dp)) != NULL) {
+            if (entry->d_type == DT_REG && is_valid_filename(entry->d_name)) {
+                char old_path[256], new_path[256];
+                sprintf(old_path, "%s/%s", dirname, entry->d_name);
+                sprintf(new_path, "Filtered/%s", entry->d_name);
+
+                if (rename(old_path, new_path) != 0) {
+                    perror("rename");
+                }
+            } else if (entry->d_type == DT_REG && strstr(entry->d_name, ".txt") != NULL) {
+                char filepath[256];
+                sprintf(filepath, "%s/%s", dirname, entry->d_name);
+                if (remove(filepath) != 0) {
+                    perror("remove");
+                }
+            }
+        }
+        closedir(dp);
+    }
+}
+```
+Penjelasan :
+
+Function ini akan masuk ke setiap folder yg sudah di unzip kemudian akan mengecek nama filenya apakah sesuai ketentuan atau tidak, jika namanya sesuai maka akan dimasukkan ke dalam folder lain dan jika salah maka akan langsung dihapus sehingga ketika semua sudah di filter maka folder sebelumnya akan kosong
+![image](https://github.com/user-attachments/assets/ddc5a362-1f5b-48e0-8552-36b9b0584e5d)
+![image](https://github.com/user-attachments/assets/02fb8c66-6337-4a7c-9d34-7edca50a2526)
+
+c. Combine the File Content
+```c
+int compare_files(const void *a, const void *b) {
+    const char *file1 = *(const char **)a;
+    const char *file2 = *(const char **)b;
+
+    if (isdigit(file1[0]) && !isdigit(file2[0])) return -1;
+    if (!isdigit(file1[0]) && isdigit(file2[0])) return 1;
+
+    if (isdigit(file1[0]) && isdigit(file2[0])) {
+        return file1[0] - file2[0];
+    }
+
+    return file1[0] - file2[0];
+}
+
+void combine_files() {
+    FILE *combined = fopen("Combined.txt", "w");
+    if (!combined) {
+        perror("Error creating Combined.txt");
+        return;
+    }
+
+    // Urutan file: 1.txt, a.txt, 2.txt, b.txt, dst.
+    const char *files[] = {"1.txt", "a.txt", "2.txt", "b.txt", "3.txt", "c.txt", "4.txt", "d.txt", "5.txt", "e.txt", "6.txt", "f.txt"};
+    int num_files = 12;
+
+    for (int i = 0; i < num_files; i++) {
+        char filepath[256];
+        sprintf(filepath, "Filtered/%s", files[i]);
+
+        FILE *file = fopen(filepath, "r");
+        if (file) {
+            char ch;
+            if (fread(&ch, 1, 1, file) == 1) {
+                fputc(ch, combined);  // Tulis karakter ke Combined.txt
+            }
+            fclose(file);
+        }
+    }
+
+    fclose(combined);
+}
+```
+Penjelasan :
+
+Function ini akan mengcompare terlebih dahulu filenya apakah benar angka dan digit sehingga saat akan di combine akan sesuai urutan yaitu angka terkecil terlebih dahulu lalu huruf lalu angka lagi dan seterusnya, kemudian hasilnya akan di masukkan ke dalam file txt dan semua file dari folder sebelumnya akan dihapus
+![image](https://github.com/user-attachments/assets/e4fa3972-ae26-4de4-b71e-435897b5968c)
+![image](https://github.com/user-attachments/assets/124b97bf-dd07-49e0-a4f9-fd310cc58701)
+
+d. Decode the file
+```c
+void rot13(char *str) {
+    for (int i = 0; str[i]; i++) {
+        if (isalpha(str[i])) {
+            if ((tolower(str[i]) - 'a') < 13) {
+                str[i] += 13;
+            } else {
+                str[i] -= 13;
+            }
+        }
+    }
+}
+
+void decode_file() {
+    FILE *combined = fopen("Combined.txt", "r");
+    if (combined == NULL) {
+        perror("Error opening Combined.txt");
+        return;
+    }
+
+    char content[MAX_CONTENT];
+    if (!fgets(content, MAX_CONTENT, combined)) {
+        fclose(combined);
+        perror("Error reading Combined.txt");
+        return;
+    }
+    fclose(combined);
+
+    rot13(content);
+
+    FILE *decoded = fopen("Decoded.txt", "w");
+    if (decoded == NULL) {
+        perror("Error creating Decoded.txt");
+        return;
+    }
+
+    fputs(content, decoded);
+    fclose(decoded);
+}
+```
+Penjelasan :
+
+Function ini akan menggunakan Rot13 untuk decode string dari file txt yg sebelumnya berisi hasil dari combined txt yg sudah kita dapatkan, hasil nya akan di decode dan dimasukkan ke file txt yg lain
+![image](https://github.com/user-attachments/assets/94dc426f-ae93-4b60-aefe-a5c9d401c13e)
+![image](https://github.com/user-attachments/assets/db33358a-1bb9-4525-8f17-069d36aac916)
+
+e. Password Check
+```
+BewareOfAmpy
+```
+Penjelasan :
+
+Ini adalah hasil yg didapatkan ketika membuka file txt decoded.txt dan ketika dicoba hasilnya di web yg ditentukan ternyata benar
+![image](https://github.com/user-attachments/assets/0bd25afb-19e7-4497-8a8b-579403c6fa5a)
+
 # Soal 2
 Di soal 2 kita diminta untuk membuat daemon yang bisa mendekripsi nama file.
 
