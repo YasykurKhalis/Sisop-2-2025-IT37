@@ -84,6 +84,7 @@ void filter_files() {
 Penjelasan :
 
 Function ini akan masuk ke setiap folder yg sudah di unzip kemudian akan mengecek nama filenya apakah sesuai ketentuan atau tidak, jika namanya sesuai maka akan dimasukkan ke dalam folder lain dan jika salah maka akan langsung dihapus sehingga ketika semua sudah di filter maka folder sebelumnya akan kosong
+
 ![image](https://github.com/user-attachments/assets/ddc5a362-1f5b-48e0-8552-36b9b0584e5d)
 ![image](https://github.com/user-attachments/assets/02fb8c66-6337-4a7c-9d34-7edca50a2526)
 
