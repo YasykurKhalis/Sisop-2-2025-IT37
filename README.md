@@ -135,6 +135,7 @@ void combine_files() {
 Penjelasan :
 
 Function ini akan mengcompare terlebih dahulu filenya apakah benar angka dan digit sehingga saat akan di combine akan sesuai urutan yaitu angka terkecil terlebih dahulu lalu huruf lalu angka lagi dan seterusnya, kemudian hasilnya akan di masukkan ke dalam file txt dan semua file dari folder sebelumnya akan dihapus
+
 ![image](https://github.com/user-attachments/assets/e4fa3972-ae26-4de4-b71e-435897b5968c)
 ![image](https://github.com/user-attachments/assets/124b97bf-dd07-49e0-a4f9-fd310cc58701)
 
@@ -182,6 +183,7 @@ void decode_file() {
 Penjelasan :
 
 Function ini akan menggunakan Rot13 untuk decode string dari file txt yg sebelumnya berisi hasil dari combined txt yg sudah kita dapatkan, hasil nya akan di decode dan dimasukkan ke file txt yg lain
+
 ![image](https://github.com/user-attachments/assets/94dc426f-ae93-4b60-aefe-a5c9d401c13e)
 ![image](https://github.com/user-attachments/assets/db33358a-1bb9-4525-8f17-069d36aac916)
 
